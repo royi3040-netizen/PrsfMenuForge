@@ -1,7 +1,7 @@
 ﻿# PrsfMenuForge — Windows 11 right-click menu manager
 # PowerShell 5.1 / WPF. Source code; no compiled binary or external modules.
 # Scope: classic shell verbs and legacy COM context-menu handlers.
-# Safe operation: export backups before edits, reversible hide rather than delete.
+# Safe operation: export backups before edits; hide is reversible and delete requires confirmation.
 
 if ([System.Threading.Thread]::CurrentThread.ApartmentState -ne 'STA') {
     [System.Windows.MessageBox]::Show('יש להפעיל את התוכנה דרך הקובץ "הפעל.bat".','PrsfMenuForge')
@@ -276,7 +276,82 @@ $xaml = @'
          IsReadOnly="True" GridLinesVisibility="Horizontal" RowHeaderWidth="0"
          AlternatingRowBackground="#1F2A3A" HorizontalScrollBarVisibility="Auto"
          SelectionMode="Single" SelectionUnit="FullRow">
-     <DataGrid.ColumnHeaderStyle>
+     <DataGrid.Resources>
+      <!-- Use the dark palette for both scrollbars and their arrows. -->
+      <Style x:Key="DarkScrollThumb" TargetType="Thumb">
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="Thumb">
+              <Border x:Name="thumbFill" Background="#536D89" CornerRadius="5" Margin="2,1"/>
+              <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="thumbFill" Property="Background" Value="#78A4CF"/></Trigger>
+                <Trigger Property="IsDragging" Value="True"><Setter TargetName="thumbFill" Property="Background" Value="#86B7E8"/></Trigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
+      <Style x:Key="DarkScrollPage" TargetType="RepeatButton">
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="RepeatButton"><Border Background="#141E2A"/></ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
+      <Style x:Key="DarkScrollArrow" TargetType="RepeatButton">
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="Foreground" Value="#BBD0E7"/>
+        <Setter Property="FontSize" Value="10"/>
+        <Setter Property="Background" Value="#203146"/>
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="RepeatButton">
+              <Border Background="{TemplateBinding Background}" BorderBrush="#36485F" BorderThickness="0">
+                <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center"/>
+              </Border>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
+      <ControlTemplate x:Key="DarkScrollVertical" TargetType="ScrollBar">
+        <Grid Width="15" Background="#141E2A">
+          <Grid.RowDefinitions><RowDefinition Height="17"/><RowDefinition Height="*"/><RowDefinition Height="17"/></Grid.RowDefinitions>
+          <RepeatButton Grid.Row="0" Content="▲" Style="{StaticResource DarkScrollArrow}" Command="ScrollBar.LineUpCommand"/>
+          <Track x:Name="PART_Track" Grid.Row="1" IsDirectionReversed="True">
+            <Track.DecreaseRepeatButton><RepeatButton Style="{StaticResource DarkScrollPage}" Command="ScrollBar.PageUpCommand"/></Track.DecreaseRepeatButton>
+            <Track.Thumb><Thumb Style="{StaticResource DarkScrollThumb}"/></Track.Thumb>
+            <Track.IncreaseRepeatButton><RepeatButton Style="{StaticResource DarkScrollPage}" Command="ScrollBar.PageDownCommand"/></Track.IncreaseRepeatButton>
+          </Track>
+          <RepeatButton Grid.Row="2" Content="▼" Style="{StaticResource DarkScrollArrow}" Command="ScrollBar.LineDownCommand"/>
+        </Grid>
+      </ControlTemplate>
+      <ControlTemplate x:Key="DarkScrollHorizontal" TargetType="ScrollBar">
+        <Grid Height="15" Background="#141E2A">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="17"/><ColumnDefinition Width="*"/><ColumnDefinition Width="17"/></Grid.ColumnDefinitions>
+          <RepeatButton Grid.Column="0" Content="◀" Style="{StaticResource DarkScrollArrow}" Command="ScrollBar.LineLeftCommand"/>
+          <Track x:Name="PART_Track" Grid.Column="1">
+            <Track.DecreaseRepeatButton><RepeatButton Style="{StaticResource DarkScrollPage}" Command="ScrollBar.PageLeftCommand"/></Track.DecreaseRepeatButton>
+            <Track.Thumb><Thumb Style="{StaticResource DarkScrollThumb}"/></Track.Thumb>
+            <Track.IncreaseRepeatButton><RepeatButton Style="{StaticResource DarkScrollPage}" Command="ScrollBar.PageRightCommand"/></Track.IncreaseRepeatButton>
+          </Track>
+          <RepeatButton Grid.Column="2" Content="▶" Style="{StaticResource DarkScrollArrow}" Command="ScrollBar.LineRightCommand"/>
+        </Grid>
+      </ControlTemplate>
+      <Style TargetType="ScrollBar">
+        <Setter Property="Background" Value="#141E2A"/>
+        <Setter Property="Width" Value="15"/>
+        <Setter Property="Template" Value="{StaticResource DarkScrollVertical}"/>
+        <Style.Triggers>
+          <Trigger Property="Orientation" Value="Horizontal">
+            <Setter Property="Width" Value="Auto"/>
+            <Setter Property="Height" Value="15"/>
+            <Setter Property="Template" Value="{StaticResource DarkScrollHorizontal}"/>
+          </Trigger>
+        </Style.Triggers>
+      </Style>
+    </DataGrid.Resources>
+    <DataGrid.ColumnHeaderStyle>
        <Style TargetType="DataGridColumnHeader"><Setter Property="Background" Value="#25364A"/><Setter Property="Foreground" Value="White"/><Setter Property="Padding" Value="10"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
      </DataGrid.ColumnHeaderStyle>
      <DataGrid.Columns>
@@ -312,13 +387,16 @@ $xaml = @'
      </Grid>
     </Border>
     <Grid Grid.Row="3" Margin="0,11,0,0">
-     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-     <StackPanel Orientation="Horizontal">
+     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+     <StackPanel Grid.Column="0" Orientation="Horizontal">
       <Button x:Name="addBtn" Style="{StaticResource Action}" Background="#137ABA" Content="✚  הוסף תוכנה"/>
       <Button x:Name="toggleBtn" Style="{StaticResource Action}" Content="הסתר / החזר" IsEnabled="False"/>
-      <Button x:Name="deleteOwnBtn" Style="{StaticResource Action}" Content="מחק תוספת שלי" IsEnabled="False"/>
      </StackPanel>
-     <TextBlock x:Name="adminText" Grid.Column="1" VerticalAlignment="Center" Foreground="#B7D0E8"/>
+     <Button x:Name="deleteBtn" Grid.Column="1" HorizontalAlignment="Right" Width="145"
+             Style="{StaticResource Action}" Background="#8D2A36" BorderBrush="#B64A54"
+             Content="✕  מחק" IsEnabled="False"
+             ToolTip="מחיקת הרישום של הפריט הנבחר לאחר אישור וגיבוי; לא מסיר את התוכנה מהמחשב"/>
+     <TextBlock x:Name="adminText" Grid.Column="2" VerticalAlignment="Center" Foreground="#B7D0E8"/>
     </Grid>
    </Grid>
   </Grid>
@@ -329,7 +407,7 @@ $xaml = @'
 try { $script:Window = [Windows.Markup.XamlReader]::Parse($xaml) }
 catch { [System.Windows.MessageBox]::Show($_.Exception.Message,'שגיאה בטעינת הממשק'); return }
 
-foreach ($name in @('entriesGrid','searchBox','counterText','allBtn','desktopBtn','foldersBtn','filesBtn','drivesBtn','refreshBtn','backupBtn','adminBtn','adminText','detailTitle','detailNote','pathBox','commandBox','addBtn','toggleBtn','deleteOwnBtn')) {
+foreach ($name in @('entriesGrid','searchBox','counterText','allBtn','desktopBtn','foldersBtn','filesBtn','drivesBtn','refreshBtn','backupBtn','adminBtn','adminText','detailTitle','detailNote','pathBox','commandBox','addBtn','toggleBtn','deleteBtn')) {
     Set-Variable -Scope Script -Name $name -Value $script:Window.FindName($name)
 }
 $script:adminText.Text = if ($script:IsAdmin) { 'הרשאות מנהל פעילות' } else { 'לשינוי פריטי מערכת ייתכן שתידרש הרשאת מנהל' }
@@ -347,7 +425,7 @@ function Show-Entries {
     $script:pathBox.Text = ''
     $script:commandBox.Text = ''
     $script:toggleBtn.IsEnabled = $false
-    $script:deleteOwnBtn.IsEnabled = $false
+    $script:deleteBtn.IsEnabled = $false
 }
 function Update-Detail {
     $e = $script:entriesGrid.SelectedItem
@@ -363,7 +441,7 @@ function Update-Detail {
     $script:detailNote.Text = "$note  |  $($e.Source)"
     $script:toggleBtn.IsEnabled = $e.Editable -and (-not $e.HasLegacy)
     $script:toggleBtn.Content = if ($e.Status -eq 'מוסתר') { '◉  הצג מחדש' } else { '◌  הסתר מהתפריט' }
-    $script:deleteOwnBtn.IsEnabled = $e.IsOwn -and $e.Source -eq 'משתמש נוכחי'
+    $script:deleteBtn.IsEnabled = $e.Editable
 }
 function Perform-Toggle {
     $entry = $script:entriesGrid.SelectedItem
@@ -490,16 +568,47 @@ function Open-AddDialog {
     })
     [void]$script:dlg.ShowDialog()
 }
-function Delete-OwnEntry {
+function Delete-MenuEntry {
     $e = $script:entriesGrid.SelectedItem
-    if (-not $e -or -not $e.IsOwn -or $e.Source -ne 'משתמש נוכחי') { return }
-    if ([System.Windows.MessageBox]::Show("למחוק את הפקודה '$($e.Name)' שהוספת?`nלא יימחק שום קובץ תוכנה. יישמר גיבוי Registry.",'אישור מחיקה','YesNo','Warning') -ne 'Yes') { return }
+    if (-not $e -or -not $e.Editable -or $e.IsCore) {
+        Fail 'יש לבחור פריט שניתן לעריכה. מחיקת פקודות מערכת חסומה.'
+        return
+    }
+    # Delete only a specifically scanned context-menu registration, never an EXE,
+    # a parent group, or a shared CLSID implementation.
+    $allowedKey = $false
+    foreach ($location in $script:Locations) {
+        foreach ($root in $script:Roots) {
+            foreach ($part in @('shell','shellex\ContextMenuHandlers')) {
+                $prefix = "$($root.Short)\$($location.Relative)\$part\"
+                if ($e.RegistryPath.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
+                    $suffix = $e.RegistryPath.Substring($prefix.Length)
+                    if ($suffix -and -not $suffix.Contains('\')) { $allowedKey = $true }
+                }
+            }
+        }
+    }
+    if (-not $allowedKey) { Fail 'הנתיב אינו מפתח פריט רגיל. המחיקה נחסמה לבטיחות.'; return }
+    $keyPath = 'Registry::' + $e.RegistryPath
+    if (-not (Get-RegKey $keyPath)) { Fail 'הפריט כבר אינו רשום. כדאי לרענן את הרשימה.'; return }
+    $warning = "למחוק את הפריט '$($e.Name)' מתפריט הלחיצה הימנית?`n`n"
+    $warning += "המפתח שיימחק:`n$($e.RegistryPath)`n`n"
+    $warning += 'זוהי מחיקת רישום אמיתית, ולא הסתרה. התוכנה עצמה לא תימחק.'
+    $warning += "`nגיבוי .reg יישמר לפני המחיקה כדי לאפשר שחזור ידני."
+    if ($e.Type -eq 'תוסף') { $warning += "`nזו רשומת תוסף COM, וייתכן שתידרש הפעלה מחדש של סייר Windows." }
+    if ([System.Windows.MessageBox]::Show($warning,'אישור מחיקת פריט','YesNo','Warning') -ne 'Yes') { return }
+    $backupFile = ''
     try {
-        [void](Save-Backup $e.RegistryPath)
-        Remove-Item -LiteralPath ('Registry::' + $e.RegistryPath) -Recurse -Force -ErrorAction Stop
+        # Backup must complete successfully before any delete operation is attempted.
+        $backupFile = Save-Backup $e.RegistryPath
+        if (-not (Get-RegKey $keyPath)) { throw 'הפריט השתנה או הוסר. לא בוצעה מחיקה.' }
+        Remove-Item -LiteralPath $keyPath -Recurse -Force -ErrorAction Stop
         Reload-Entries
-        Notify-Result 'הפקודה שהוספת נמחקה מהתפריט. קובץ התוכנה עצמו לא נמחק.'
-    } catch { Fail "מחיקה נכשלה: $($_.Exception.Message)" }
+        Notify-Result "הפריט נמחק מהתפריט. התוכנה עצמה לא הוסרה.`n`nלשחזור, ייבא את קובץ הגיבוי:`n$backupFile`n`nייתכן שתידרש הפעלה מחדש של סייר Windows."
+    } catch {
+        $suffix = if ($backupFile) { "`nקובץ הגיבוי: $backupFile" } else { '' }
+        Fail "מחיקת הפריט לא הושלמה: $($_.Exception.Message)$suffix`nאם נדרשות הרשאות, הפעל את הכלי כמנהל."
+    }
 }
 
 $script:entriesGrid.Add_SelectionChanged({ Update-Detail })
@@ -521,6 +630,6 @@ $script:adminBtn.Add_Click({
 })
 $script:toggleBtn.Add_Click({ Perform-Toggle })
 $script:addBtn.Add_Click({ Open-AddDialog })
-$script:deleteOwnBtn.Add_Click({ Delete-OwnEntry })
+$script:deleteBtn.Add_Click({ Delete-MenuEntry })
 Reload-Entries
 [void]$script:Window.ShowDialog()
