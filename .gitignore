@@ -1,5 +1,13 @@
-Backups/
-DATA/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+build/
+dist/
+*.spec
+.pytest_cache/
 *.log
-*.bak
-.vscode/
+*.reg
+*.tmp
+.DS_Store
+TOOLS/venv/
