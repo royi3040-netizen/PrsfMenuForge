@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "builds": {
+    "windows": {
+      "script": "packaging/prsfcompilation/build-windows.ps1",
+      "output": "@RUN/PrsfMenuForge-Windows.exe"
+    }
+  }
+}
